@@ -211,6 +211,7 @@
               const { value, done } = content;
               if (done) {
                 state.loading = false
+                getVersion()
                 break;
               }
               const txt = decoder.decode(value);
