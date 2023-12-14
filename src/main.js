@@ -92,6 +92,32 @@ function updateVersion(cwd, dockerComposeName, imageUrl, version) {
     
 }
 
+function getVersion(cwd, dockerComposeName, imageUrl) {
+    const fileName = path.join(cwd || process.cwd(), dockerComposeName);
+    return new Promise(resolve => {
+        fs.readFile(fileName, 'utf8', (err, content) => {
+            if (err) {
+                console.error('Error reading file:', err);
+                resolve("")
+                return
+            }
+            const lines = content.split("\n");
+            const flag = `${imageUrl}:`
+            for (var i = 0; i < lines.length; i++) {
+                if (lines[i].includes(flag)) {
+                    var startIndex = lines[i].indexOf(flag) + flag.length;
+                    var version = lines[i].substring(startIndex).trim().replace(/['"]+/g, '');
+                    console.log(version);
+                    resolve(version)
+                    break;
+                }
+            }
+            resolve("")
+        });
+    })
+    
+}
+
 async function execCommand(res, data) {
     const {isPull, imageUrl, version, dockerComposeName, cwd} = data
     
@@ -160,6 +186,24 @@ app.get('/exec/test', async(req, res) => {
             res.write(data)
         }
     })
+});
+app.get('/exec/version', async(req, res) => {
+    const {cwd, dockerComposeName, imageUrl} = req.query;
+    const version = await getVersion(cwd, dockerComposeName, imageUrl)
+    if(version) {
+        res.status(200)
+        res.json({
+            data: version,
+            message: 'success'
+        })
+    } else {
+        res.status(500)
+        res.json({
+            data: null,
+            message: 'Failed to obtain image version'
+        })
+    }
+    
 });
 
 app.listen(8080, () => {

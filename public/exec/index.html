@@ -29,6 +29,10 @@
     .result {
       margin-left: 20px;
     }
+    .current-version {
+      --el-loading-spinner-size: 24px;
+      --el-loading-fullscreen-spinner-size: 24px;
+    }
   </style>
   <body>
     <div id="app">
@@ -78,6 +82,9 @@
               />
             </el-select>
           </el-form-item>
+          <el-form-item label="Current Version"  class="current-version">
+            <el-text>{{form.currentVersion}}</el-text>
+          </el-form-item>
           <el-form-item label="Version">
             <el-input v-model="form.version" />
           </el-form-item>
@@ -114,7 +121,8 @@
             options: [],
             version: "",
             isPull: true,
-            env: ""
+            env: "dev",
+            currentVersion: "123"
           }
           const data = JSON.parse(window.localStorage.getItem("form") || JSON.stringify(defaultForm))
           const form = reactive(data)
@@ -122,6 +130,7 @@
             loading: false
           })
           let activities = reactive([])
+          const upload = ref();
           watch(form, (newVal, oldVal) => {
             window.localStorage.setItem('form', JSON.stringify(newVal));
           }, {
@@ -129,6 +138,11 @@
           });
           watch(() => form.version, (newVal, oldVal) => {
             form.isPull = Boolean(form.version)
+          });
+          watch([() => form.env, () => form.dockerComposeInfo], (newVal, oldVal) => {
+            getVersion()
+          }, {
+            deep: true // 深度监听对象内部的变化
           });
           const download = () => {
             const a = document.createElement('a');
@@ -148,6 +162,7 @@
               form.options = data.options
               form.dockerComposeInfo = data.options?.[0] || {}
               form.cwd = data.cwd
+              upload.value.clearFiles()
             }
             fileReader.readAsText(uploadFile.raw);
           }
@@ -205,7 +220,24 @@
               })
             }
           };
-          return { state, form, download, onChangeFile, request, deploy, activities };
+          const getVersion = async () => {
+            const loading = ElementPlus.ElLoading.service({
+              lock: true,
+              text: '',
+              background: 'rgba(245, 245, 245, 0.5)',
+              target: document.querySelector('.current-version')
+            })
+            const res = await fetch(`${preFix}/version?cwd=${form.cwd}&dockerComposeName=${form.dockerComposeInfo.value}&imageUrl=${form.dockerComposeInfo.url}`);
+            loading.close();
+            const result = await res.json()
+            if(res.status === 200) {
+              form.currentVersion = result.data;
+            } else {
+              ElementPlus.ElMessage.error(result.message)
+              form.currentVersion = ""
+            }
+          }
+          return { state, form, upload, download, onChangeFile, request, deploy, activities };
         },
       });
       app.use(ElementPlus);
