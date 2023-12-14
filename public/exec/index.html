@@ -227,7 +227,7 @@
               background: 'rgba(245, 245, 245, 0.5)',
               target: document.querySelector('.current-version')
             })
-            const res = await fetch(`${preFix}/version?cwd=${form.cwd}&dockerComposeName=${form.dockerComposeInfo.value}&imageUrl=${form.dockerComposeInfo.url}`);
+            const res = await fetch(`${preFix}/${from.env}/version?cwd=${form.cwd}&dockerComposeName=${form.dockerComposeInfo.value}&imageUrl=${form.dockerComposeInfo.url}`);
             loading.close();
             const result = await res.json()
             if(res.status === 200) {
