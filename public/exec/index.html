@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deploy</title>
+    <link rel="icon" href="/exec/logo.svg" />
+    <link
+      href="https://cdn.bootcdn.net/ajax/libs/element-plus/2.3.12/index.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.bootcdn.net/ajax/libs/element-plus/2.3.12/theme-chalk/base.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <style>
+    .form {
+      width: 600px;
+      margin: 50px auto;
+    }
+    .select {
+      width: 100%;
+    }
+    .timeline {
+      margin-top: 50px;
+    }
+    .result {
+      margin-left: 20px;
+    }
+  </style>
+  <body>
+    <div id="app">
+      <div class="form">
+        <el-form
+          label-position="left"
+          label-width="150px"
+          :model="form"
+          style="max-width: 600px"
+        >
+        <el-form-item label="Config">
+          <el-space spacer="|">
+            <el-button type="primary" @click="download">Download Demo</el-button>
+            <el-upload
+              ref="upload"
+              class="upload-demo"
+              :auto-upload="false"
+              :show-file-list="false"
+              :limit="1"
+              accept="application/JSON"
+              :on-change="onChangeFile"
+            >
+              <template #trigger>
+                <el-button type="primary">Import Config</el-button>
+              </template>
+            </el-upload>
+          </el-space>
+          
+        </el-form-item>
+        <el-form-item label="ENV">
+          <el-radio-group v-model="form.env">
+            <el-radio label="dev">DEV</el-radio>
+            <el-radio label="test">TEST</el-radio>
+            <el-radio label="uat">UAT</el-radio>
+          </el-radio-group>
+        </el-form-item>
+          <el-form-item label="CWD">
+            <el-input v-model="form.cwd" />
+          </el-form-item>
+          <el-form-item label="Docker File Name">
+            <el-select v-model="form.dockerComposeInfo" class="select" placeholder="Select" value-key="id">
+              <el-option
+                v-for="item in form.options"
+                :key="item.value"
+                :label="item.label"
+                :value="item"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Version">
+            <el-input v-model="form.version" />
+          </el-form-item>
+          <el-form-item label="Is Pull">  
+            <el-checkbox v-model="form.isPull" size="large" />
+          </el-form-item>
+        </el-form>
+        <el-button type="primary" @click="deploy" :loading="state.loading">deploy</el-button>
+        <el-button type="primary" @click="request">test</el-button>
+        <!-- <el-text class="result" type="success">Success</el-text> -->
+        <el-timeline class="timeline">
+          <el-timeline-item
+            v-for="(activity, index) in activities"
+            :key="index"
+            :timestamp="activity.timestamp"
+            color="#0bbd87"
+          >
+            {{ activity.content }}
+          </el-timeline-item>
+        </el-timeline>
+      </div>
+    </div>
+    <!-- <script src="https://unpkg.com/vue@next"></script> -->
+    <script src="/exec/vue3.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/element-plus/2.3.12/index.full.min.js"></script>
+    <script>
+      const { createApp, defineAsyncComponent, ref, reactive, watch } = Vue;
+      const app = createApp({
+        setup() {
+          const preFix = "/exec"
+          const defaultForm = {
+            cwd: "",
+            dockerComposeInfo: {},
+            options: [],
+            version: "",
+            isPull: true,
+            env: ""
+          }
+          const data = JSON.parse(window.localStorage.getItem("form") || JSON.stringify(defaultForm))
+          const form = reactive(data)
+          const state = reactive({
+            loading: false
+          })
+          let activities = reactive([])
+          watch(form, (newVal, oldVal) => {
+            window.localStorage.setItem('form', JSON.stringify(newVal));
+          }, {
+            deep: true // 深度监听对象内部的变化
+          });
+          watch(() => form.version, (newVal, oldVal) => {
+            form.isPull = Boolean(form.version)
+          });
+          const download = () => {
+            const a = document.createElement('a');
+            document.body.appendChild(a);
+            a.style.display = 'none';
+            const url = `${preFix}/demo.json?${Math.random()}`
+            a.href = url;
+            a.download = 'demo.json';
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+          const onChangeFile = (uploadFile) => {
+            var fileReader = new FileReader()
+            fileReader.onload = function (e) {
+              const data = JSON.parse(e.target.result)
+              form.options = data.options
+              form.dockerComposeInfo = data.options?.[0] || {}
+              form.cwd = data.cwd
+            }
+            fileReader.readAsText(uploadFile.raw);
+          }
+          const request = async () => {
+            activities.splice(0, activities.length);
+            state.loading = true;
+            const res = await fetch(`${preFix}/${form.env}/test`, {
+              method: "GET",
+            });
+            const reader = await res.body.getReader();
+            const decoder = new TextDecoder();
+            while (1) {
+              const content = await reader.read();
+              const { value, done } = content;
+              if (done) {
+                state.loading = false;
+                break;
+              }
+              const txt = decoder.decode(value);
+              activities.push({
+                content: txt,
+                timestamp: new Date().toLocaleString()
+              })
+            }
+          };
+          const deploy = async () => {
+            activities.splice(0, activities.length);
+            state.loading = true
+            const res = await fetch(`${preFix}/${form.env}/deploy`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                cwd: form.cwd,
+                version: form.version,
+                dockerComposeName: form.dockerComposeInfo.value,
+                imageUrl: form.dockerComposeInfo.url,
+                isPull: form.isPull
+              }),
+            });
+            const reader = await res.body.getReader();
+            const decoder = new TextDecoder();
+            while (1) {
+              const content = await reader.read();
+              const { value, done } = content;
+              if (done) {
+                state.loading = false
+                break;
+              }
+              const txt = decoder.decode(value);
+              activities.push({
+                content: txt,
+                timestamp: new Date().toLocaleString()
+              })
+            }
+          };
+          return { state, form, download, onChangeFile, request, deploy, activities };
+        },
+      });
+      app.use(ElementPlus);
+      app.mount("#app");
+    </script>
+  </body>
+</html>

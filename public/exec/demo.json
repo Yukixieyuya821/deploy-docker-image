@@ -1,0 +1,11 @@
+{
+  "cwd": "/",
+  "options": [
+    {
+      "id": 1,
+      "label": "docker-compose.yaml",
+      "value": "docker-compose.yaml",
+      "url": "hub.docker.com/image/demo"
+    }
+  ]
+}

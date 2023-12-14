@@ -1,0 +1,14 @@
+version: '3.0'
+services:
+  demo:
+    network_mode: "host"
+    image: "hub.docker.com/image/demo:latest"
+    container_name: demo
+    restart: always
+    logging:
+      options:
+        max-size: "100m"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      STAETARG: "test"
